@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Generate strings based on regular expressions</title>
+  <meta http-equiv="content-type" content="text/html;       charset=utf-8" />
+  <meta http-equiv="content-type" content="text/javascript; charset=utf-8" />
+  <meta http-equiv="content-type" content="text/css;        charset=utf-8" />
+
+  <link type="text/css" href="http://static.hoa-project.net/Css/Keynote.css" rel="stylesheet" />
+  <link type="text/css" href="http://static.hoa-project.net/Css/Leaflet.css" rel="stylesheet" />
+  <link type="text/css" href="http://static.hoa-project.net/Css/Graph.css" rel="stylesheet" />
+
+  <style>
+    section {
+      background-image: url("Image/Liip.png");
+    }
+  </style>
+</head>
+<body>
+
+<script src="http://static.hoa-project.net/Javascript/Hoa.js"></script>
+
+<section>
+  <h1 style="text-align: center">Generate strings based on regular expressions</h1>
+</section>
+
+<section>
+  <h1>Prelude</h1>
+
+  <p>I am Ivan Enderlin, a PhD Computer Scientist</p>
+  <p>It means I spent 8 years in a University</p>
+  <p>
+    And at the end, I gave them a bunch of papers in exchange for another paper
+  </p>
+  <p>Cool!</p>
+  <p><code>&lt;/story&gt;</code></p>
+  <p>Applause</p>
+</section>
+
+<section>
+  <h1>Real prelude</h1>
+
+  <p>
+    PhD title: <cite>Automatic generation of unit tests with Praspel, a specification language for PHP</cite>
+  </p>
+  <p>
+    PhD subtitle: <cite>The Art of Contract-based Testing in PHP with Praspel</cite>
+  </p>
+  <p>Praspel means: PHP Realistic Annotation and Specification Language</p>
+  <p>This talk is not about Praspel</p>
+  <p>
+    This talk is about the underlying layer of Praspel:
+    <strong>Realistic Domains</strong>
+  </p>
+</section>
+
+<section>
+  <h1>Realistic Domain</h1>
+
+  <p>An algebraic field, but who cares ¯\_(ツ)_/¯?</p>
+  <p>This is an “object” with two characteritics:</p>
+  <ol>
+    <li><strong>Predicability</strong>, allows to validate that a data belongs
+    to the realistic domain,</li>
+    <li><strong>Generability</strong>, allows to generate a data belonging to
+    realistic domain.</li>
+  </ol>
+  <p>Two kind of hierarchies: Vertical (called the universe) and Horizontal
+  (called the interfaces): <code>Constant</code>, <code>Interval</code>,
+  <code>Finite</code>, <code>Nonconvex</code>, <code>Enumerable</code></p>
+</section>
+
+<section>
+  <h1>Compose realistic domains</h1>
+
+  <p>A realdom can be parameterized: <code>boundinteger(7, 42)</code></p>
+  <ul>
+    <li>An interval of integers from 7 to 42</li>
+  </ul>
+  <p>Compose them: <code>string('a', 'z', boundinteger(7, 42))</code></p>
+  <ul>
+    <li>
+      A string composed of <code>a</code> to <code>z</code> letters of length 7
+      to 42
+    </li>
+  </ul>
+  <p>More complex one: <code>array([to class('Foo')], 7..42)</code></p>
+  <ul>
+    <li>
+      An array where values are objects of kind <code>Foo</code> with a length
+      of 7 to 42
+    </li>
+  </ul>
+  <p class="break">
+    These examples are voluntary <strong>simplistic</strong> but you get it
+  </p>
+</section>
+
+<section>
+  <h1>Define realdom for all usual types</h1>
+
+  <p>
+    One of the big part of my PhD thesis was to define realistic domains for all
+    usual types:
+  </p>
+  <ul class="columns" data-columns="3">
+    <li><code>Boolean</code>,</li>
+    <li><code>Boundfloat</code>,</li>
+    <li><code>Boundinteger</code>,</li>
+    <li><code>Class</code>,</li>
+    <li><code>Color</code>,</li>
+    <li><code>Date</code>,</li>
+    <li><code>Grammar</code>,</li>
+    <li><code>Integer</code>,</li>
+    <li><code>Natural</code>,</li>
+    <li><code>Object</code>,</li>
+    <li><code>Regex</code>,</li>
+    <li><code>String</code>,</li>
+    <li><code>Timestamp</code>,</li>
+    <li>etc.</li>
+  </ul>
+  <p>Today, we will focus on <code>Regex</code>!</p>
+</section>
+
+<section>
+  <h1>The <code>Regex</code> realistic domain</h1>
+
+  <p>
+    We focus on <strong>Perl Compatible Regular Expressions</strong> (PCRE)
+  </p>
+  <p>How to ensure the two characteristics?</p>
+  <ol>
+    <li>
+      <strong>Predicability</strong>: Simply use <code>preg_match</code> (in
+      PHP), <code>re.match</code> (in Python), <code>Regex.is_match</code> (in
+      Rust)<small>, assuming there are correct!</small>
+    </li>
+    <li>
+      <strong>Generability</strong>: This is where things become funny
+    </li>
+  </ol>
+  <p class="break">
+    To generate a datum matching a regular expression, we need to:
+  </p>
+  <ul>
+    <li>“Understand” a regular expression,</li>
+    <li>Traverse it in a specific way,</li>
+    <li>Being able to generate the datum.</li>
+  </ul>
+</section>
+
+<section>
+  <h1>What is a regex?</h1>
+
+  <p>
+    We are talking about formal language theory here, but who cares
+    ¯\_(ツ)_/¯?
+  </p>
+  <p>
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/6/6e/Chomsky.jpg"
+      width="100"
+      style="float: right" />
+    In 1956, the Chomsky hierarchy classifies grammars
+    <small>(which define languages)</small>:
+  </p>
+  <ol>
+    <li>
+      Unrestricted grammars<small>, matching languages known as Turing
+      languages, no restriction</small>,
+    </li>
+    <li>
+      Context-sensitive grammars<small>, matching contextual languages</small>,
+    </li>
+    <li>
+      Context-free grammars<small>, matching algebraic languages, based on
+        stacked automata</small>,
+    </li>
+    <li>Regular grammars<small>, matching regular languages</small>.</li>
+  </ol>
+</section>
+
+<section>
+  <h1>Examples of regexes</h2>
+
+  <p>PCRE is a small language with very few operators and a simple semantics</p>
+  <p>
+    <code>ab(c|d)</code> means: A word (a datum) starting by <code>ab</code> and
+    followed by <code>c</code> or <code>d</code>
+  </p>
+  <p>
+    Quantification operators: <code>{<em>x</em>,<em>y</em>}</code> to repeat
+    <code><em>x</em></code> to <code><em>y</em></code> times, <code>?</code> is
+    equivalent to <code>{0,1}</code>, <code>*</code> is equivalent to
+    <code>{0,}</code> and <code>+</code> is equivalent to <code>{1,}</code>
+  </p>
+  <p>
+    <code>ab(c|d){2,4}e?</code> means: A word starting by <code>ab</code>,
+    followed 2, 3 or 4 times by <code>c</code> or <code>d</code> (so
+    <code>cc</code>, <code>cd</code>, <code>dc</code>, <code>ccc</code>,
+    <code>ccd</code>, <code>cdc</code> and so on) and potentially followed by
+    <code>e</code>
+  </p>
+</section>
+
+<section>
+  <h1>Understanding regexes</h1>
+
+  <p>Write the grammar of the regular expressions to:</p>
+  <ul>
+    <li>Lex (lexical analysis) and,</li>
+    <li>Parse (syntactic analysis).</li>
+  </ul>
+  <p class="break">
+    Write the grammar of… the grammar: <strong>Grammarception</strong>
+  </p>
+  <p>
+    Write the grammar of… the grammar with… this grammar:
+    <strong>Metagrammarception</strong>
+  </p>
+</section>
+
+<section>
+  <h1>Lexing and parsing a regex</h1>
+
+  <p>The classical workflow:</p>
+  <div id="parsers" class="schema" style="margin-top: 1em"></div>
+  <script>
+  Hoa.Document.onReady(function ( ) {
+
+      var paper    = Hoa.Graph(Hoa.$('#parsers'), 800, 180);
+      var grid     = paper.grid(0, 0, 800, 180, 5, 2);
+      var word     = grid.push(paper.rect(0, 0, 140, 80, 3, 'word'), 0, 0);
+      var sequence = grid.push(paper.rect(0, 0, 140, 80, 3, 'sequence'), 2, 0);
+      var trace    = grid.push(paper.rect(0, 0, 140, 80, 3, 'result'), 4, 0);
+      grid.push(paper.rect(0, 0, 140, 50, 3, 'abcdef'), 0, 1);
+      grid.push(paper.rect(0, 0, 380, 50, 3, '[[a ⟼ …], [bc ⟼ …], [d ⟼ …], [ef ⟼ …]]'), 2, 1);
+      grid.push(paper.rect(0, 0, 140, 50, 3, 'valid/invalid'), 4, 1);
+
+      paper.link.between(word, sequence, 'lexical analyzer');
+      paper.link.between(sequence, trace, 'syntactic analyzer');
+  });
+  </script>
+  <ol>
+    <li>Lexical analyzer splits the data into a sequence of lexemes,</li>
+    <li>Syntactic analyzer checks the sequence is in the correct order.</li>
+  </ol>
+</section>
+
+<section>
+  <h1>Example of lexing a regex</h1>
+
+  <p>Let's use <code>Hoa\Compiler</code> and its CLI tool:</p>
+  <pre><code class="language-shell">$ hoa compiler:pp hoa://Library/Regex/Grammar.pp 'ab(c|d){2,4}e?' --token-sequence
+  #  …  token name   token value  offset
+-----------------------------------------
+  0  …  literal      a                 0
+  1  …  literal      b                 1
+  2  …  capturing_   (                 2
+  3  …  literal      c                 3
+  4  …  alternation  |                 4
+  5  …  literal      d                 5
+  6  …  _capturing   )                 6
+  7  …  n_to_m       {2,4}             7
+  8  …  literal      e                12
+  9  …  zero_or_one  ?                13
+ 10  …  EOF                           15</code></pre>
+  <p>
+    <code>hoa://Library/Regex/Grammar.pp</code> is the grammar of the regular
+    expressions
+  </p>
+</section>
+
+<section>
+  <h1>Example of parsing a regex</h1>
+
+  <pre><code class="language-shell">$ hoa compiler:pp hoa://Library/Regex/Grammar.pp 'ab(c|d){2,4}e?' --visitor dump
+>  #expression
+>  >  #concatenation
+>  >  >  token(literal, a)
+>  >  >  token(literal, b)
+>  >  >  #quantification
+>  >  >  >  #alternation
+>  >  >  >  >  token(literal, c)
+>  >  >  >  >  token(literal, d)
+>  >  >  >  token(n_to_m, {2,4})
+>  >  >  #quantification
+>  >  >  >  token(literal, e)
+>  >  >  >  token(zero_or_one, ?)</code></pre>
+  <p>This is an Abstract Syntax Tree (AST)</p>
+  <p>
+    Nodes: <code>expression</code>, <code>concatenation</code>,
+    <code>quantification</code>…
+  </p>
+  <p>Leaves: <code>token</code></p>
+</section>
+
+<section>
+  <h1>Let's take a break</h1>
+
+  <p>We have regular expressions</p>
+  <p>We are able to parse them</p>
+  <p>We obtain a tree</p>
+  <p>We would like to generate a data matching a regular expression</p>
+  <p class="break">
+    Let's traverse the tree and do something at each nodes and
+    leaves
+  </p>
+</section>
+
+<section>
+  <h1>Isotropic generation</h1>
+
+  <p>“Let's do something”, like applying an isotropic generation</p>
+  <p>Because there is a lot of ways to traverse a tree, we have to choose one</p>
+  <p class="break">
+    Isotropic means randomly, but the uniformity is enclosed to
+    immediate node's children
+  </p>
+  <p>This is probability stuff, but who cares ¯\_(ツ)_/¯?</p>
+</section>
+
+<section>
+  <h1><code>IsotropicSampler</code> visitor</h1>
+
+  <pre><code class="language-php">use Hoa\{Math,Visitor};
+
+class IsotropicSampler implements Visitor\Visit
+{
+    protected $_sampler = null;
+
+    public function __construct (Math\Sampler $sampler)
+    {
+        $this->_sampler = $sampler;
+    }
+
+    public function visit(
+      Visitor\Element $element,
+      &amp;$handle = null,
+      $eldnah  = null)
+    {
+        switch ($element->getId()) {
+            // …
+        }
+    }
+}</code></pre>
+</section>
+
+<section>
+  <h1>How to use it?</h1>
+
+  <p>4 steps only:</p>
+  <pre><code class="language-php">// 1. Our regular expression.
+$expression  = '…';
+
+// 2. We parse the regular expression and get an AST.
+$ast         = $compiler->parse($expression);
+
+// 3. We initialize the isotropic sampler.
+$sampler     = new IsotropicSampler(new Math\Sampler\Random());
+
+// 4. Apply the sampler on the AST and output the result!
+echo $sampler->visit($ast);</code></pre>
+  <p class="break">Now, let's write the isotropic sampler!</p>
+</section>
+
+<section>
+  <h1>Case of…</h1>
+
+  <div class="incremental incremental-overlay">
+    <div>
+      <p>the <code>#expression</code> node:</p>
+      <pre><code class="language-php">case '#expression':
+    return $element->getChild(0)->accept($this, $handle, $eldnah);</code></pre>
+      <p>With <code class="language-php">$expression = 'a';</code>, we get
+      nothing yet</p>
+    </div>
+
+    <div>
+      <p>the <code>token</code> leaf:</p>
+      <pre><code class="language-php">case 'token':
+    return $element->getValueValue();</code></pre>
+      <p>With <code class="language-php">$expression = 'a';</code>, we get
+      <code>a</code></p>
+    </div>
+
+    <div>
+      <p>the <code>#concatenation</code> node:</p>
+      <pre><code class="language-php">case '#concatenation':
+    $out = null;
+
+    foreach ($element->getChildren() as $child) {
+        $out .= $child->accept($this, $handle, $eldnah);
+    }
+
+    return $out;</code></pre>
+      <p>With <code class="language-php">$expression = 'ab';</code>, we get
+        <code>ab</code></p>
+    </div>
+
+    <div>
+      <p>the <code>#alternation</code> node:</p>
+      <pre><code class="language-php">case '#alternation':
+    $childIndex = $this->_sampler->getInteger(
+        0,
+        $element->getChildrenNumber() - 1
+    );
+
+    return
+        $element
+            ->getChild($childIndex)
+            ->accept($this, $handle, $eldnah);</code></pre>
+      <p>With <code class="language-php">$expression = 'ab(c|d)';</code>, we get
+      <code>abc</code> or <code>abd</code> at random</p>
+    </div>
+
+    <div>
+      <p>the <code>#quantification</code> node <small>(a quantification is an
+      alternation of concatenations, <code>e{2,4}</code> is strictly
+      equivalent to <code>ee|eee|eeee</code>)</small>:</p>
+      <pre style="max-height: 250px"><code class="language-php">case '#quantification':
+    $out = null;
+    $x   = 0;
+    $y   = 0;
+
+    // Filter the type of quantification.
+    switch ($element->getChild(1)->getValueToken()) {
+        // ?
+        case 'zero_or_one':
+            $y = 1;
+            break;
+
+        // {x,y}
+        case 'n_to_m':
+            $xy = explode(
+                ',',
+                trim($element->getChild(1)->getValueValue(), '{}')
+            );
+            $x  = (int) trim($xy[0]);
+            $y  = (int) trim($xy[1]);
+            break;
+
+        // …
+    }
+
+    // Choose the number of repetitions.
+    $max = $this->_sampler->getInteger($x, $y);
+
+    // Concatenate.
+    for ($i = 0; $i &lt; $max; ++$i) {
+        $out .= $element->getChild(0)->accept($this, $handle, $eldnah);
+    }
+
+    return $out;</code></pre>
+      <p>With <code class="language-php">$expression = 'ab(c|d){2,4}e?';</code>,
+      we get <code>abdce</code>, <code>abdcc</code>, <code>abcdde</code>… at
+      random</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h1>Results and live demo!</h1>
+
+  <pre style="max-height: 400px"><code class="language-php">for ($i = 0; $i &lt; 20; ++$i) {
+    echo $generator->visit($ast), "\n";
+}
+
+/**
+ * Could output:
+ *     abdce
+ *     abdcc
+ *     abcdde
+ *     abcdcd
+ *     abcde
+ *     abcc
+ *     abddcde
+ *     abddcce
+ *     abcde
+ *     abcc
+ *     abdcce
+ *     abcde
+ *     abdce
+ *     abdd
+ *     abcdce
+ *     abccd
+ *     abdcdd
+ *     abcdcce
+ *     abcce
+ *     abddc
+ */
+  </code></pre>
+</section>
+
+<section>
+  <h1>Conclusion</h1>
+
+  <p>We are know able to:</p>
+  <ul>
+    <li><strong>Validate</strong> that a datum matches a regex and,</li>
+    <li><strong>Generate</strong> a datum that matches a regex.</li>
+  </ul>
+  <p class="break">
+    Applications: Testing! We always need <strong>test data</strong>. Generate
+    1 million data in 9.4 sec (no cache).
+  </p>
+  <p class="break">
+    Next talk: Generate strings based on grammars. Much more fun
+    and complex algorithms, <strong>but more powerful applications</strong>
+    <small>(e.g. generate JSON payloads)</small>
+  </p>
+</section>
+
+<section>
+  <h1>Bonus: Ready to use with…</h1>
+
+  <p>
+    <code>Hoa\Regex</code> provides the <code>Isotropic</code> visitor, because
+    PCRE is more complex than these few constructions 😄
+  </p>
+  <p class="break">In atoum —the PHP testing framework—, simply use:</p>
+  <pre><code class="language-php">$_regex = $this->realdom->regex('/ab(c|d){2,4}e?/');
+$datum  = $this->sample($_regex);
+$data   = $this->sampleMany($_regex, 1024);</code></pre>
+</section>
+
+<section>
+  <h1><code>__destruct</code></h1>
+
+  <p style="text-align: center">Thank you very much! Questions?</p>
+</section>
+
+<div id="progress-bar"></div>
+
+<script src="http://static.hoa-project.net/Javascript/Keynote.js"></script>
+<script src="http://static.hoa-project.net/Javascript/Hoa.Graph.js"></script>
+<script src="http://static.hoa-project.net/Javascript/Prism.js"></script>
+<script src="http://static.hoa-project.net/Javascript/Prism.hoa.js"></script>
+<script src="http://static.hoa-project.net/Javascript/Prism.plugin.line.js"></script>
+
+<svg viewBox="0 0 0 0" version="1.1"><defs><radialGradient fy="10%" fx="50%" r="100%" cy="50%" cx="50%" id="boxFill"><stop stop-color="#8ec33d" offset="5%"></stop><stop stop-color="#508106" offset="95%"></stop></radialGradient><filter id="shadow"><feColorMatrix values="0" type="saturate" result="saturateOut" in="SourceGraphic"></feColorMatrix><feGaussianBlur stdDeviation="4" result="blurOut" in="saturateOut"></feGaussianBlur><feBlend mode="normal" in2="blurOut" in="SourceGraphic"></feBlend></filter><marker orient="auto" markerHeight="10" markerWidth="12" markerUnits="strokeWidth" refY="3" refX="0" id="arrow"><path d="M 0,0 L 0,6 7,3 z"></path></marker></defs></svg>
+
+</body>
+</html>
